@@ -1,0 +1,232 @@
+---
+title: "ProgrammingAssignment3"
+author: "Xi Fang"
+date: "4/8/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+#This data com from the Hospital Compare website which providedata and information about 
+#the quality of care at over 4000 Medicare-certified hospitals in the U.S.
+
+1. Plot the 30-day mortality rates for heart attack
+
+```{r check datas, echo=TRUE}
+outcomes <- read.csv("outcome-of-care-measures.csv", colClasses = "character")
+head(outcomes)
+#check the number of columns and rows and names of each column
+ncol(outcomes)
+nrow(outcomes)
+names(outcomes)
+#make a histogram of 30day death from heart attack
+heartattack <- as.numeric(outcomes[,11])
+hist(heartattack)
+```
+
+2. Finding the best hospital in a state
+
+```{r besthospital, echo=FALSE}
+best <- function(state, outcome) {
+  outcomes <- c("heart attack","heart failure", "pneumonia")
+  states <- data$State
+  ## read outcome data
+  data <- read.csv("outcome-of-care-measures.csv")
+  colnames(data)[c(11,17,23)] <- c("heart attack", "heart failure", "pneumonia")
+  data[,c(11,17,23)] = apply(data[,c(11,17,23)],2, suppressWarnings(as.numeric))
+  
+  ## check that state and input outcome are valid
+  if(outcome %in% outcomes ==FALSE ) {
+    stop("invalid outcome")
+  }
+  if(state %in% states == FALSE) {
+    stop("invalid state")
+  }
+ 
+  ## Get data in that state and find lowest death for a given outcome
+  newdata <- data[data$State==state,]
+  ## Remove rows with na in the given outcomes
+  comdata<- newdata[complete.cases(newdata[outcome]),]
+  ## Return hospital name in that state with lowest 30-day death
+  comdata$Hospital.Name[comdata[outcome]== min(comdata[outcome])]
+}
+
+best("TX","heart attack")
+best("SC", "heart attack")
+best("NY", "pneumonia")
+best("AK", "pneumonia")
+
+```
+
+```{r besthospital, echo=FALSE}
+best <- function(state, outcome) {
+  ## read outcome data
+  data <- read.csv("outcome-of-care-measures.csv")
+  outcomes <- c("heart attack","heart failure", "pneumonia")
+  states <- data$State
+  colnames(data)[c(11,17,23)] <- c("heart attack", "heart failure", "pneumonia")
+  data[,c(11,17,23)] = apply(data[,c(11,17,23)],2, suppressWarnings(as.numeric))
+  
+  ## check that state and input outcome are valid
+  if(outcome %in% outcomes ==FALSE ) {
+    stop("invalid outcome")
+  }
+  if(state %in% states == FALSE) {
+    stop("invalid state")
+  }
+  ## Get data in that state and exclude rows with na in the given outcome
+  newdata <- data[data$State==state & !is.na(data[outcome]),]
+  ## Return hospital name in that state with lowest 30-day death of the given outcome
+  newdata$Hospital.Name[newdata[outcome]== min(newdata[outcome])]
+  
+}
+
+# best("AL","heart attack")
+# best("TX","heart attack")
+# best("TX", "heart failure")
+# best("MD", "heart attack")
+```
+
+3. Ranking hospitals by outcome in a state
+```{r ranking, echo=TRUE}
+rankhospital <- function(state, outcome, num="best"){
+  #Read outcome data
+  data <- read.csv("outcome-of-care-measures.csv")
+  outcomes <- c("heart attack","heart failure", "pneumonia")
+  states <- data$State
+  colnames(data)[c(11,17,23)] <- c("heart attack", "heart failure", "pneumonia")
+  data[,c(11,17,23)] = apply(data[,c(11,17,23)],2, suppressWarnings(as.numeric))
+  data[,c(2,7)] = apply(data[,c(2,7)],2, suppressWarnings(as.character))
+  
+  ## check that state and input outcome are valid
+  if(outcome %in% outcomes ==FALSE ) {
+    stop("invalid outcome")
+  }
+  if(state %in% states == FALSE) {
+    stop("invalid state")
+  }
+  ## Get data in that state and exclude rows with na in the given outcome
+  newdata <- data[data$State==state & !is.na(data[outcome]),]
+  ## Rank hospitals based on the name by alphabetic 
+  rankname <- newdata[order(newdata$Hospital.Name, decreasing = FALSE),]
+  ## Rank hospitals based on a given outcome
+  rankoutcome <- rankname[order(rankname[outcome],decreasing = FALSE),]
+  rownumber <- nrow(rankoutcome)
+  ## Get the name of the selected number of ranking
+  if (num == "best") {
+    newdata$Hospital.Name[newdata[outcome]== min(newdata[outcome])]
+  } else if (num == "worst") {
+    newdata$Hospital.Name[newdata[outcome]== max(newdata[outcome])]
+  }
+  else if (num <=rownumber) {
+  rankoutcome[num,]$Hospital.Name
+  }
+  else {
+    "NA"
+  }
+  
+}
+
+#rankhospital("TX", "heart failure",4)
+#rankhospital("MD", "heart attack","worst")
+#rankhospital("MN", "heart attack",5000)
+#rankhospital("NC", "heart attack", "worst")
+#rankhospital("WA", "heart attack", 7)
+rankhospital("TX", "pneumonia", 10)
+rankhospital("NY", "heart attack", 7)
+```
+4. Ranking hospitals in all states
+```{r rankall, echo=TRUE}
+rankall <- function(outcome, num="best") {
+  #Read outcome data
+  data <- read.csv("outcome-of-care-measures.csv")
+  outcomes <- c("heart attack","heart failure", "pneumonia")
+  data[,c(11,17,23)] = apply(data[,c(11,17,23)],2, suppressWarnings(as.numeric))
+  data[,2]<-as.character(data[,2])
+  ## check input outcome are valid
+  if(outcome %in% outcomes ==FALSE ) {
+    stop("invalid outcome")
+  }
+ 
+ ## Find hospital of a given rank for each state
+  col <- if (outcome=="heart attack"){
+    11
+  }else if (outcome=="heart failure"){
+    17
+  } else {
+    23
+  }
+  
+ # data[,col] <- suppressWarnings(as.numeric(levels(data[,col])[data[,col]]))
+   # generate an empty vector that can be filled row by row
+   output <- vector()
+   states <- levels(data[,7])
+  for(i in 1:length(states)) {
+    statedata <- data[grep(states[i], data$State), ]
+    orderdata <- statedata[order(statedata[, col],statedata[, 2],
+                                 na.last = NA), ]
+    ## Get the name of the selected number of ranking
+  hospital <- if(num == "best") {
+    orderdata[1,2]
+  } else if(num == "worst") {
+    orderdata[nrow(orderdata),2]
+  }else{
+  orderdata[num,2]
+  }
+  output <- append(output,c(hospital,states[i]))
+}
+  ## Return a data frame with the hospital names and state abbr
+  output <- as.data.frame(matrix(output, length(states),2,byrow = TRUE))
+  colnames(output) <- c("hospital","state")
+  rownames(output) <- states
+  output
+}
+
+#head(rankall("heart attack", 20), 10)
+#tail(rankall("pneumonia","worst"),3)
+#tail(rankall("heart failure"),10)
+#r <- rankall("heart attack", 4)
+#as.character(subset(r, state == "HI")$hospital)
+#r <- rankall("pneumonia", "worst")
+#as.character(subset(r, state == "NJ")$hospital)
+r <- rankall("heart failure", 10)
+as.character(subset(r, state == "NV")$hospital)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
